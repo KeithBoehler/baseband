@@ -1,3 +1,4 @@
+import io
 import warnings
 import numpy as np
 from astropy import units as u
@@ -233,3 +234,60 @@ class VLBIStreamWriterBase(VLBIStreamBase):
                        invalid_data=True)
             assert self.offset % self.samples_per_frame == 0
         return super(VLBIStreamWriterBase, self).close()
+
+open__doc__extra = """
+Opened as a binary file, one gets a wrapped file handle that adds
+methods to read/write a frame.  Opened as a stream, the handle is
+wrapped further, with methods such as read and write access the file
+as if it were a stream of samples.
+
+Parameters
+----------
+name : str or filehandle
+   File name or handle
+mode : {'rb', 'wb', 'rs', or 'ws'}, optional
+   Whether to open for reading or writing, and as a regular binary file
+   or as a stream (default is reading a stream).
+**kwargs
+   Additional arguments when opening the file as a stream.
+"""
+
+def make_opener(fmt, _ns):
+    classes = {cls_type : _ns[fmt + cls_type]
+               for cls_type in ('FileReader', 'FileWriter',
+                                'StreamReader', 'StreamWriter')}
+    def open(name, mode='rs', **kwargs):
+        if 'b' in mode:
+            cls_type = 'File'
+            if kwargs:
+                raise TypeError('got unexpected arguments {}'.format(kwargs.keys()))
+        else:
+            cls_type = 'Stream'
+
+        if 'w' in mode:
+            cls_type += 'Writer'
+            got_fh = hasattr(name, 'write')
+            if not got_fh:
+                name = io.open(name, 'wb')
+        elif 'r' in mode:
+            cls_type += 'Reader'
+            got_fh = hasattr(name, 'read')
+            if not got_fh:
+                name = io.open(name, 'rb')
+        else:
+            raise ValueError("Only support opening {0} file for reading "
+                             "or writing (mode='r' or 'w')."
+                             .format(fmt))
+        try:
+            return classes[cls_type](name, **kwargs)
+        except Exception as exc:
+            if not got_fh:
+                try:
+                    name.close()
+                except Exception:
+                    pass
+            raise exc
+
+    open.__doc__ = ("Open {0} file for reading or writing.\n".format(fmt) +
+                    open__doc__extra)
+    return open
