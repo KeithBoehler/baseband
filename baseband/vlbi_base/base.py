@@ -1,4 +1,5 @@
 import io
+import textwrap
 import warnings
 import numpy as np
 from astropy import units as u
@@ -235,32 +236,54 @@ class VLBIStreamWriterBase(VLBIStreamBase):
             assert self.offset % self.samples_per_frame == 0
         return super(VLBIStreamWriterBase, self).close()
 
-open__doc__extra = """
-Opened as a binary file, one gets a wrapped file handle that adds
-methods to read/write a frame.  Opened as a stream, the handle is
-wrapped further, with methods such as read and write access the file
-as if it were a stream of samples.
 
-Parameters
-----------
-name : str or filehandle
-   File name or handle
-mode : {'rb', 'wb', 'rs', or 'ws'}, optional
-   Whether to open for reading or writing, and as a regular binary file
-   or as a stream (default is reading a stream).
-**kwargs
-   Additional arguments when opening the file as a stream.
-"""
+class FileOpener(object):
+    """Opener for a baseband format file."""
 
-def make_opener(fmt, _ns):
-    classes = {cls_type : _ns[fmt + cls_type]
-               for cls_type in ('FileReader', 'FileWriter',
-                                'StreamReader', 'StreamWriter')}
-    def open(name, mode='rs', **kwargs):
+    def __init__(self, fmt, ns):
+        """File opener for a baseband format.
+
+        Each instance can be used as a function to open a baseband stream.
+        It is probably best used inside a wrapper, so that the documentation
+        can reflect the docstring of ``__call__`` rather than of this class.
+
+        Parameters
+        ----------
+        fmt : str
+            Name of the baseband format
+        ns : dict
+            With the file/stream reader/writer classes keyed by names equal to
+            'FileReader', 'FileWriter', 'StreamReader', 'StreamWriter' prefixed by
+            ``fmt``.  Typically, one will pass in ``ns=globals()``.
+        """
+        self.fmt = fmt
+        self.classes = {cls_type : ns[fmt + cls_type]
+                        for cls_type in ('FileReader', 'FileWriter',
+                                          'StreamReader', 'StreamWriter')}
+    def __call__(self, name, mode='rs', **kwargs):
+        """
+        Open baseband file for reading or writing.
+
+        Opened as a binary file, one gets a wrapped file handle that adds
+        methods to read/write a frame.  Opened as a stream, the handle is
+        wrapped further, with methods such as read and write access the file
+        as if it were a stream of samples.
+
+        Parameters
+        ----------
+        name : str or filehandle
+            File name or handle
+        mode : {'rb', 'wb', 'rs', or 'ws'}, optional
+            Whether to open for reading or writing, and as a regular binary
+            file or as a stream (default is reading a stream).
+        **kwargs
+            Additional arguments when opening the file as a stream.
+        """
         if 'b' in mode:
             cls_type = 'File'
             if kwargs:
-                raise TypeError('got unexpected arguments {}'.format(kwargs.keys()))
+                raise TypeError('got unexpected argument(s): {}'
+                                .format(kwargs.keys()))
         else:
             cls_type = 'Stream'
 
@@ -277,9 +300,9 @@ def make_opener(fmt, _ns):
         else:
             raise ValueError("Only support opening {0} file for reading "
                              "or writing (mode='r' or 'w')."
-                             .format(fmt))
+                             .format(self.fmt))
         try:
-            return classes[cls_type](name, **kwargs)
+            return self.classes[cls_type](name, **kwargs)
         except Exception as exc:
             if not got_fh:
                 try:
@@ -288,6 +311,6 @@ def make_opener(fmt, _ns):
                     pass
             raise exc
 
-    open.__doc__ = ("Open {0} file for reading or writing.\n".format(fmt) +
-                    open__doc__extra)
-    return open
+    def opener_doc(self):
+        return textwrap.dedent(self.__call__.__doc__
+                               .replace('baseband', self.fmt))

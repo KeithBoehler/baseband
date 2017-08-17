@@ -1,10 +1,11 @@
-import io
-
+# Licensed under the GPLv3 - see LICENSE.rst
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 import numpy as np
 from astropy import units as u
 
 from ..vlbi_base.base import (VLBIFileBase, VLBIStreamReaderBase,
-                              VLBIStreamWriterBase, make_opener)
+                              VLBIStreamWriterBase, FileOpener)
 from .header import Mark5BHeader
 from .frame import Mark5BFrame
 
@@ -339,49 +340,8 @@ class Mark5BStreamWriter(VLBIStreamWriterBase, Mark5BFileWriter):
             count -= nsample
 
 
-open = make_opener('Mark5B', globals())
-open.__doc__ += """
---- For reading a stream : (see `~baseband.mark5b.base.Mark5BStreamReader`)
-
-nchan : int
-    Number of threads/channels stored in the file.
-bps : int, optional
-    Bits per sample.  Default: 2.
-ref_mjd : int, or `~astropy.time.Time` instance
-    Reference MJD (rounded to thousands), to remove ambiguities in the
-    time stamps.  By default, will be inferred from the file creation date.
-thread_ids: list of int, optional
-    Specific threads to read.  By default, all threads are read.
-frames_per_second : int, optional
-    Needed to calculate timestamps. If not given, will be inferred from
-    ``sample_rate``, or by scanning the file.
-sample_rate : `~astropy.units.Quantity`, optional
-    Rate at which each thread is sampled (bandwidth * 2; frequency units).
-
---- For writing a stream : (see `~baseband.mark5b.base.Mark5BStreamWriter`)
-
-frames_per_second : int, optional
-    Needed to calculate timestamps. If not given, inferred from
-    ``sample_rate``.
-sample_rate : `~astropy.units.Quantity`, optional
-    Rate at which each thread is sampled (bandwidth * 2; frequency units).
-nchan : int, optional
-    Number of threads the VLBI data has (e.g., 2 for 2 polarisations).
-    Default is 1.
-bps : int
-    Bits per sample.  Default is 2.
-header : :class:`~baseband.mark5b.Mark5BHeader`, optional
-    Header for the first frame, holding time information, etc.
-**kwargs
-    If the header is not given, an attempt will be made to construct one
-    with any further keyword arguments.  See
-    :class:`~baseband.mark5b.base.Mark5BStreamWriter`.
-
-Returns
--------
-Filehandle
-    :class:`~baseband.mark5b.base.Mark5BFileReader` or
-    :class:`~baseband.mark5b.base.Mark5BFileWriter` instance (binary), or
-    :class:`~baseband.mark5b.base.Mark5BStreamReader` or
-    :class:`~baseband.mark5b.base.Mark5BStreamWriter` instance (stream).
-"""
+open = FileOpener('Mark5B', globals())
+# We wrap the opener so we can set an appropriate docstring, and have
+# __module__ point to here.
+#def open(name, mode='rs', **kwargs):
+#    return opener(name, mode, **kwargs)
